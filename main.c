@@ -9,8 +9,12 @@
 #include <unistd.h>
 #include <stdbool.h>
 
+#define WINDOW_WIDTH    800
+#define WINDOW_HEIGHT   480
+#define BYTES_PER_PIXEL 4
+
 static uint8_t sock_buffer[100] = {0};
-static uint8_t frame_buffer[800 * 480 * 4] = {0};
+static uint8_t frame_buffer[WINDOW_WIDTH * WINDOW_HEIGHT * BYTES_PER_PIXEL] = {0};
 
 int task(void);
 
@@ -143,14 +147,14 @@ vncConnect(int fd)
     /* ServerInit */
     memset(sock_buffer, 0x00, sizeof(sock_buffer));
     uint8_t *server_init_str = sock_buffer;
-    uint16_t width = htons(800), height = htons(480);
+    uint16_t width = htons(WINDOW_WIDTH), height = htons(WINDOW_HEIGHT);
     memcpy(server_init_str, &width, sizeof(width));
     server_init_str += sizeof(width);
     memcpy(server_init_str, &height, sizeof(height));
     server_init_str += sizeof(height);
     
     /* PIXEL_FORMAT */
-    uint8_t bits_per_pixel = 32;
+    uint8_t bits_per_pixel = BYTES_PER_PIXEL * 8;
     uint8_t depth = 32;
     uint8_t big_endian_flag = 0;
     uint8_t true_color_flag = 1;
@@ -203,7 +207,7 @@ static bool
 vncReceive(int fd)
 {
     uint16_t number_of_encodings;
-    uint32_t encoding_type;
+    int32_t encoding_type;
     uint32_t client_cut_length;
     int i;
     while(1) {
@@ -220,7 +224,6 @@ vncReceive(int fd)
                 if(!sockSkip(fd, 9)) {
                     return false;
                 }
-                break;
                 updateFrameBuffer();
                 if(!sendFrameBuffer(fd)) {
                     return false;
@@ -246,7 +249,7 @@ vncReceive(int fd)
                         return false;
                     }
                     encoding_type = ntohl(encoding_type);
-                    printf("encoding_type[%d] = %u\n", i, encoding_type);
+                    printf("encoding_type[%d] = %d\n", i, encoding_type);
                 }
                 break;
             case 4: /* KeyEvent */
@@ -309,13 +312,13 @@ updateFrameBuffer(void)
             red = 255;  green = 255;    blue = 255;
             break;
     }
-    for(y = 0; y < 480; y++) {
-        line_offset = y * 800 * 4;
-        for(x = 0; x < 800; x++) {
-            offset = line_offset + x * 4;
-            frame_buffer[offset]        = red;
-            frame_buffer[offset + 1]    = green;
-            frame_buffer[offset + 2]    = blue;
+    for(y = 0; y < WINDOW_HEIGHT; y++) {
+        line_offset = y * WINDOW_WIDTH * BYTES_PER_PIXEL;
+        for(x = 0; x < WINDOW_WIDTH; x++) {
+            offset = line_offset + x * BYTES_PER_PIXEL;
+            frame_buffer[offset + 1]    = red;
+            frame_buffer[offset + 2]    = green;
+            frame_buffer[offset + 3]    = blue;
         }
     }
     state++;
@@ -350,7 +353,7 @@ sendFrameBuffer(int fd)
     uint16_t y_position = htons(0);
     uint16_t width = htons(800);
     uint16_t height = htons(480);
-    uint32_t encoding_type = htonl(0);
+    int32_t encoding_type = htonl(0);
     
     buffer = rect_header_buffer;
     memcpy(buffer, &x_position, sizeof(x_position));
