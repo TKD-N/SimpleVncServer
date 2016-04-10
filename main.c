@@ -328,15 +328,15 @@ updateFrameBuffer(void)
 static bool
 sendFrameBuffer(int fd)
 {
-    uint8_t message_type = 0;
-    uint8_t padding = 0;
-    uint16_t number_of_rectangles = htons(1);
-
     uint8_t header_buffer[4];
     uint8_t rect_header_buffer[12];
     
     uint8_t *buffer = NULL;
     
+    uint8_t message_type = 0;
+    uint8_t padding = 0;
+    uint16_t number_of_rectangles = htons(1);
+
     buffer = header_buffer;
     memcpy(buffer, &message_type, sizeof(message_type));
     buffer += sizeof(message_type);
@@ -345,10 +345,6 @@ sendFrameBuffer(int fd)
     memcpy(buffer, &number_of_rectangles, sizeof(number_of_rectangles));
     buffer += sizeof(number_of_rectangles);
 
-    if(!sockWrite(fd, header_buffer, sizeof(header_buffer))) {
-        printf("write error in l.%d\n", __LINE__);
-        return false;
-    }
     uint16_t x_position = htons(0);
     uint16_t y_position = htons(0);
     uint16_t width = htons(800);
@@ -366,11 +362,15 @@ sendFrameBuffer(int fd)
     buffer += sizeof(height);
     memcpy(buffer, &encoding_type, sizeof(encoding_type));
     buffer += sizeof(encoding_type);
+
+    if(!sockWrite(fd, header_buffer, sizeof(header_buffer))) {
+        printf("write error in l.%d\n", __LINE__);
+        return false;
+    }
     if(!sockWrite(fd, rect_header_buffer, sizeof(rect_header_buffer))) {
         printf("write error in l.%d\n", __LINE__);
         return false;
     }
-
     if(!sockWrite(fd, frame_buffer, sizeof(frame_buffer))) {
         printf("write error in l.%d\n", __LINE__);
         return false;
