@@ -76,7 +76,6 @@ int task(void)
     return 0;
 }
 
-
 static bool
 vncConnect(int fd)
 {
@@ -202,6 +201,7 @@ static bool
 vncReceive(int fd)
 {
     uint16_t number_of_encodings;
+    uint32_t encoding_type;
     uint32_t client_cut_length;
     int i;
     while(1) {
@@ -218,6 +218,7 @@ vncReceive(int fd)
                 if(!sockSkip(fd, 9)) {
                     return false;
                 }
+                break;
                 updateFrameBuffer();
                 if(!sendFrameBuffer(fd)) {
                     return false;
@@ -239,9 +240,11 @@ vncReceive(int fd)
                 }
                 number_of_encodings = ntohs(number_of_encodings);
                 for(i = 0; i < number_of_encodings; i++) {
-                    if(!sockSkip(fd, 4)) {
+                    if(!sockRead(fd, &encoding_type, sizeof(encoding_type))) {
                         return false;
                     }
+                    encoding_type = ntohl(encoding_type);
+                    printf("encoding_type[%d] = %u\n", i, encoding_type);
                 }
                 break;
             case 4: /* KeyEvent */
