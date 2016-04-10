@@ -19,6 +19,7 @@ static bool vncReceive(int fd);
 
 static bool updateFrameBuffer(void);
 static bool sendFrameBuffer(int fd);
+static bool receiveSetPixelFormat(int fd);
 
 static bool sockWrite(int fd, const void *buf, size_t n);
 static bool sockRead(int fd, void *buf, size_t n);
@@ -179,14 +180,15 @@ vncConnect(int fd)
     server_init_str += sizeof(green_shift);
     memcpy(server_init_str, &blue_shift, sizeof(blue_shift));
     server_init_str += sizeof(blue_shift);
+    server_init_str += 3;   /* padding */
     
     /* デスクトップの名前 */
     write_str   = "Simple VNC";
-    write_size  = strlen(write_str);
+    write_size  = htonl(strlen(write_str));
     memcpy(server_init_str, &write_size, sizeof(write_size));
     server_init_str += sizeof(write_size);
-    memcpy(server_init_str, write_str, write_size);
-    server_init_str += write_size;
+    memcpy(server_init_str, write_str, strlen(write_str));
+    server_init_str += strlen(write_str);
     
     /* ServerInit を送信(サイズはアドレスの引き算) */
     if(!sockWrite(fd, sock_buffer, server_init_str - sock_buffer)) {
@@ -226,7 +228,7 @@ vncReceive(int fd)
                 break;
             case 0: /* SetPixelFormat */
                 printf("receive SetPixelFormat.\n");
-                if(!sockSkip(fd, 19)) {
+                if(!receiveSetPixelFormat(fd)) {
                     return false;
                 }
                 break;
@@ -370,6 +372,64 @@ sendFrameBuffer(int fd)
         printf("write error in l.%d\n", __LINE__);
         return false;
     }
+    
+    return true;
+}
+
+static bool
+receiveSetPixelFormat(int fd)
+{
+    uint8_t pixel_format[16];
+    uint8_t *buffer;
+    uint8_t bits_per_pixel;
+    uint8_t depth;
+    uint8_t big_endian_flag;
+    uint8_t true_color_flag;
+    uint16_t red_max;
+    uint16_t green_max;
+    uint16_t blue_max;
+    uint8_t red_shift;
+    uint8_t green_shift;
+    uint8_t blue_shift;
+
+    if(!sockSkip(fd, 3)) {
+        return false;
+    }
+    if(!sockRead(fd, pixel_format, sizeof(pixel_format))) {
+        return false;
+    }
+    buffer = pixel_format;
+    bits_per_pixel = *(uint8_t *)buffer;
+    buffer += sizeof(uint8_t);
+    depth = *(uint8_t *)buffer;
+    buffer += sizeof(uint8_t);
+    big_endian_flag = *(uint8_t *)buffer;
+    buffer += sizeof(uint8_t);
+    true_color_flag = *(uint8_t *)buffer;
+    buffer += sizeof(uint8_t);
+    red_max = ntohs(*(uint16_t *)buffer);
+    buffer += sizeof(uint16_t);
+    green_max = ntohs(*(uint16_t *)buffer);
+    buffer += sizeof(uint16_t);
+    blue_max = ntohs(*(uint16_t *)buffer);
+    buffer += sizeof(uint16_t);
+    red_shift = *(uint8_t *)buffer;
+    buffer += sizeof(uint8_t);
+    green_shift = *(uint8_t *)buffer;
+    buffer += sizeof(uint8_t);
+    blue_shift = *(uint8_t *)buffer;
+    buffer += sizeof(uint8_t);
+
+    printf("bits-per-pixel  = %u\n",    bits_per_pixel);
+    printf("depth           = %u\n",    depth);
+    printf("big_endian_flag = %u\n",    big_endian_flag);
+    printf("true_color_flag = %u\n",    true_color_flag);
+    printf("red_max         = %u\n",    red_max);
+    printf("green_max       = %u\n",    green_max);
+    printf("blue_max        = %u\n",    blue_max);
+    printf("red_shift       = %u\n",    red_shift);
+    printf("green_shift     = %u\n",    green_shift);
+    printf("blue_shift      = %u\n",    blue_shift);
     
     return true;
 }
