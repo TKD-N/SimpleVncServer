@@ -87,6 +87,8 @@ vncConnect(int fd)
     const char  *write_str;
     size_t      write_size;
     uint32_t    security_type;
+    uint32_t    desktop_name_size;
+    char        *desktop_name;
     
     /* ProtocolVersion */
     /* プロトコルバージョンを通知 */
@@ -134,7 +136,7 @@ vncConnect(int fd)
         printf("write error in l.%d\n", __LINE__);
         return false;
     }
-    
+
     /* ClientInit */
     /* クライアントから初期化メッセージを受信 */
     memset(sock_buffer, 0x00, sizeof(sock_buffer));
@@ -187,12 +189,12 @@ vncConnect(int fd)
     server_init_str += 3;   /* padding */
     
     /* デスクトップの名前 */
-    write_str   = "Simple VNC";
-    write_size  = htonl(strlen(write_str));
-    memcpy(server_init_str, &write_size, sizeof(write_size));
-    server_init_str += sizeof(write_size);
-    memcpy(server_init_str, write_str, strlen(write_str));
-    server_init_str += strlen(write_str);
+    desktop_name = "Simple VNC";
+    desktop_name_size = htonl(strlen(desktop_name));
+    memcpy(server_init_str, &desktop_name_size, sizeof(desktop_name_size));
+    server_init_str += sizeof(desktop_name_size);
+    memcpy(server_init_str, desktop_name, strlen(desktop_name));
+    server_init_str += strlen(desktop_name);
     
     /* ServerInit を送信(サイズはアドレスの引き算) */
     if(!sockWrite(fd, sock_buffer, server_init_str - sock_buffer)) {
@@ -295,11 +297,11 @@ updateFrameBuffer(void)
     int x, y;
     int line_offset;
     int offset;
-    
+    sleep(1);
     memset(frame_buffer, 0x00, sizeof(frame_buffer));
     switch(state % 4) {
         case 0:
-            red = 100;  green = 100;    blue = 0;
+            red = 0;    green = 0;      blue = 0;
             break;
         case 1:
             red = 255;  green = 0;      blue = 0;
@@ -347,8 +349,8 @@ sendFrameBuffer(int fd)
 
     uint16_t x_position = htons(0);
     uint16_t y_position = htons(0);
-    uint16_t width = htons(800);
-    uint16_t height = htons(480);
+    uint16_t width = htons(WINDOW_WIDTH);
+    uint16_t height = htons(WINDOW_HEIGHT);
     int32_t encoding_type = htonl(0);
     
     buffer = rect_header_buffer;
